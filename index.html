@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>License Admin</title>
+<style>
+body{font:16px system-ui;max-width:760px;margin:40px auto;padding:0 18px;background:#f6f7f9;color:#171717}
+main{background:white;padding:24px;border-radius:14px;box-shadow:0 2px 14px #0001}
+input,button{font:inherit;padding:10px;margin:5px 0;border:1px solid #bbb;border-radius:8px}
+button{cursor:pointer;background:#171717;color:white} pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f1f3;padding:12px;border-radius:8px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+</style></head>
+<body><main>
+<h1>Activation Key Admin</h1>
+<p>Enter your server admin token. Keep it private; never put it in your iOS app.</p>
+<input id="token" type="password" placeholder="Admin token" style="width:min(100%,420px)">
+<div class="row"><label>Validity (days) <input id="days" type="number" min="1" max="3650" value="30"></label><button id="create">Generate key</button><button id="refresh">Refresh list</button></div>
+<h2>New key</h2><pre id="newkey">No key generated.</pre>
+<h2>Existing keys</h2><pre id="list">Not loaded.</pre>
+<p id="status"></p>
+</main><script>
+const $=id=>document.getElementById(id);
+async function api(path,opts={}) {
+ const r=await fetch(path,{...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+$("token").value,...opts.headers}});
+ const d=await r.json(); if(!r.ok) throw new Error(d.error||"Request failed"); return d;
+}
+$("create").onclick=async()=>{try{
+ const d=await api("/api/admin/keys",{method:"POST",body:JSON.stringify({durationDays:Number($("days").value)})});
+ $("newkey").textContent=d.key+"\\nValidity starts on first successful activation. Copy it now; it is not stored in plaintext.";
+ $("status").textContent="Key created.";
+ await load();
+}catch(e){$("status").textContent=e.message}};
+async function load(){try{
+ const rows=await api("/api/admin/keys");
+ $("list").textContent=rows.map(x=>`${x.id} | ${x.duration_days} days | ${x.revoked?"REVOKED":x.activated_at?(Date.now()>=x.expires_at?"EXPIRED":"ACTIVE"):"UNUSED"} | expires ${x.expires_at?new Date(x.expires_at).toLocaleString():"on activation"}`).join("\\n")||"No keys";
+}catch(e){$("status").textContent=e.message}}
+$("refresh").onclick=load;
+</script></body></html>
